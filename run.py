@@ -26,3 +26,5 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         logging.info("Бот остановлен вручную.")
+
+# тестовый запуск
