@@ -45,7 +45,7 @@ def ask_gemini(user_request, products, history_text):
 
     Итого к оплате: [Общая сумма].
 
-    Общайся естественно, как хороший и внимательный продавец.
+    Общайся естественно, как хороший и внимательный продавец. Но после "ИТОГО" уже больше ничего писать не надо
     """
     response = model.generate_content(prompt)
     return response.text
