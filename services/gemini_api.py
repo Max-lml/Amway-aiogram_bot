@@ -77,3 +77,42 @@ def ask_gemini_consult(user_question, products, history_text):
     """
     response = model.generate_content(prompt)
     return response.text
+
+
+def ask_gemini_voice(audio_path, products, history_text, mode="calc"):
+    """Загружает аудиофайл в Gemini, слушает его и дает ответ"""
+
+    # 1. Загружаем аудиофайл в облако Google
+    audio_file = genai.upload_file(path=audio_path)
+
+    # 2. Формируем правила в зависимости от того, в каком мы режиме
+    if mode == "calc":
+        prompt = f"""
+        Ты — вежливый кассир. Послушай голосовое сообщение клиента.
+        Прайс-лист: {products}
+
+        История диалога:
+        {history_text}
+
+        Выполни расчет стоимости или задай уточняющий вопрос, если клиент не назвал точный объем/размер.
+        Оформляй чек красиво.
+        """
+    else:
+        prompt = f"""
+        Ты — менеджер-консультант. Послушай голосовое сообщение клиента.
+        База знаний: {COMPANY_INFO}
+        Каталог: {products}
+
+        История диалога:
+        {history_text}
+
+        Ответь на вопрос клиента, опираясь только на эти данные.
+        """
+
+    # 3. Отправляем Гуглу и текст (инструкцию), и сам аудиофайл
+    response = model.generate_content([prompt, audio_file])
+
+    # 4. ВАЖНО: Удаляем файл с серверов Гугла, чтобы не забить квоту
+    audio_file.delete()
+
+    return response.text

@@ -3,10 +3,12 @@ import logging
 from aiogram import Router, F, types
 from aiogram.filters import CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
+import os
+import asyncio
 
 # Импортируем наши собственные модули!
 from database.airtable_api import get_airtable_data, CACHE
-from services.gemini_api import ask_gemini, ask_gemini_consult
+from services.gemini_api import ask_gemini, ask_gemini_consult, ask_gemini_voice
 from tg_bot.states import BotStates
 from tg_bot.keyboards import main_keyboard
 
@@ -43,7 +45,7 @@ async def btn_consult(message: types.Message, state: FSMContext):
     await state.update_data(history=[])
 
 
-@router.message(BotStates.waiting_for_calc)
+@router.message(BotStates.waiting_for_calc, F.text)
 async def handle_calc_request(message: types.Message, state: FSMContext):
     processing_msg = await message.answer("⏳ Считаю...")
     try:
@@ -75,7 +77,7 @@ async def handle_calc_request(message: types.Message, state: FSMContext):
         logging.error(f"Ошибка калькулятора: {e}")
 
 
-@router.message(BotStates.waiting_for_consult)
+@router.message(BotStates.waiting_for_consult, F.text)
 async def handle_consult_request(message: types.Message, state: FSMContext):
     processing_msg = await message.answer("⏳ Ищу информацию...")
     try:
@@ -105,3 +107,56 @@ async def handle_consult_request(message: types.Message, state: FSMContext):
     except Exception as e:
         await processing_msg.edit_text("❌ Произошла ошибка. Попробуй позже.")
         logging.error(f"Ошибка консультанта: {e}")
+
+
+@router.message(F.voice, StateFilter(BotStates.waiting_for_calc, BotStates.waiting_for_consult))
+async def handle_voice_message(message: types.Message, state: FSMContext):
+    processing_msg = await message.answer("🎧 Слушаю ваше голосовое сообщение...")
+
+    # Узнаем, в каком режиме сейчас находится пользователь
+    current_state = await state.get_state()
+    mode = "calc" if current_state == BotStates.waiting_for_calc.state else "consult"
+
+    # Создаем уникальное имя для аудиофайла
+    file_id = message.voice.file_id
+    file_path = f"voice_{file_id}.ogg"
+
+    try:
+        # 1. Скачиваем аудио из Телеграма на наш компьютер/сервер
+        file = await message.bot.get_file(file_id)
+        await message.bot.download_file(file.file_path, destination=file_path)
+
+        # 2. Подготавливаем данные
+        need_desc = (mode == "consult")
+        products = await get_airtable_data(need_description=need_desc)
+
+        user_data = await state.get_data()
+        history = user_data.get("history", [])
+        history_text = "\n".join(history) if history else "Это первое сообщение."
+
+        # 3. Отправляем файл в Gemini (наша новая функция)
+        ai_response = await asyncio.to_thread(
+            ask_gemini_voice, file_path, products, history_text, mode
+        )
+
+        # 4. Удаляем временный файл с диска, чтобы сервер не переполнился мусором!
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+        # 5. Отправляем ответ пользователю
+        await processing_msg.edit_text(ai_response)
+
+        # Записываем в память
+        history.append(f"Клиент (Голосовое): [Аудио сообщение]")
+        history.append(f"Бот: {ai_response}")
+        if len(history) > 6:
+            history = history[-6:]
+        await state.update_data(history=history)
+
+    except Exception as e:
+        await processing_msg.edit_text("❌ Извините, не удалось распознать голосовое сообщение.")
+        logging.error(f"Ошибка голосового: {e}")
+
+        # Если произошла ошибка, всё равно пытаемся удалить файл
+        if os.path.exists(file_path):
+            os.remove(file_path)
