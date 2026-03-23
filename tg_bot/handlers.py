@@ -1,17 +1,17 @@
 import asyncio
 import logging
-from aiogram import Router, F, types
-from aiogram.filters import CommandStart, StateFilter
-from aiogram.fsm.context import FSMContext
 import os
-import asyncio
 
-# Импортируем наши собственные модули!
+from aiogram import Router, F, types
+# ДОБАВИЛИ Command СЮДА:
+from aiogram.filters import CommandStart, StateFilter, Command
+from aiogram.fsm.context import FSMContext
+
+# ИСПРАВИЛИ ИМПОРТЫ: добавили create_or_update_cache
 from database.airtable_api import get_airtable_data, CACHE
-from services.gemini_api import ask_gemini, ask_gemini_consult, ask_gemini_voice
+from services.gemini_api import ask_gemini, ask_gemini_consult, ask_gemini_voice, create_or_update_cache
 from tg_bot.states import BotStates
 from tg_bot.keyboards import main_keyboard
-
 # Создаем роутер (вместо dp)
 router = Router()
 
@@ -29,6 +29,31 @@ async def cmd_start(message: types.Message, state: FSMContext):
 async def force_update_cache(message: types.Message):
     CACHE["last_update"] = 0
     await message.answer("🔄 Кэш сброшен! База обновится при следующем запросе.")
+
+
+@router.message(Command("refresh_price"))
+async def refresh_price_command(message: types.Message):
+    # Твой ID в телеграме (проверь его, если вдруг менял аккаунт)
+    ADMIN_ID = 364213802
+
+    if message.from_user.id == ADMIN_ID:
+        await message.answer("🔄 Начинаю полное обновление данных из Airtable и пересоздание кэша в Google...")
+
+        try:
+            # 1. Принудительно качаем из Airtable (мы добавили аргумент force_update)
+            new_products = await get_airtable_data(need_description=True, force_update=True)
+
+            # 2. Пересоздаем кэш в Google (функция, которую мы прописали в gemini_api.py)
+            # Превращаем список товаров в текст для ИИ
+            products_text = str(new_products)
+            create_or_update_cache(products_text)
+
+            await message.answer("✅ Прайс-лист и кэш Google успешно обновлены на 30 дней!")
+        except Exception as e:
+            logging.error(f"Ошибка при обновлении: {e}")
+            await message.answer(f"❌ Произошла ошибка при обновлении: {e}")
+    else:
+        await message.answer("У вас нет прав для этой команды.")
 
 
 @router.message(F.text == "💰 Расчет стоимости", StateFilter('*'))

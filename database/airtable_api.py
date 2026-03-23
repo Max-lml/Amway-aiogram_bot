@@ -12,20 +12,18 @@ CACHE = {
     "data_without_desc": None,  # Для калькулятора
     "last_update": 0            # Время последнего скачивания
 }
-CACHE_LIFETIME = 3600 * 12 # Сколько секунд живут данные (12 часов)
+CACHE_LIFETIME = 3600 * 24 * 30  # 30 дней в секундах
 # ==========================================
 #  БИЗНЕС-ЛОГИКА (Функции)
 # ==========================================
-async def get_airtable_data(need_description=False):
-    """Берет прайс из кэша. Если кэш устарел - скачивает из Airtable."""
-    global CACHE  # Говорим функции, что мы используем глобальную переменную
-
+async def get_airtable_data(need_description=False, force_update=False):
+    """Берет прайс из кэша. force_update=True заставит бота пойти в Airtable."""
+    global CACHE
     current_time = time.time()
 
-    # 1. ПРОВЕРКА КЭША: Если данные есть и они свежие — отдаем моментально!
-    if CACHE["last_update"] != 0 and (current_time - CACHE["last_update"] < CACHE_LIFETIME):
-        # Выводим в консоль для отладки, чтобы ты видел, как быстро это работает
-        logging.info("⚡ Беру данные из кэша (без запроса в Airtable)")
+    # Если не просим принудительно и кэш еще живет — берем из памяти
+    if not force_update and CACHE["last_update"] != 0 and (current_time - CACHE["last_update"] < CACHE_LIFETIME):
+        logging.info("⚡ Беру данные из локального кэша")
         return CACHE["data_with_desc"] if need_description else CACHE["data_without_desc"]
 
     # 2. ЕСЛИ КЭШ УСТАРЕЛ: Идем в Airtable

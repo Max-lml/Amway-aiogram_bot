@@ -1,4 +1,7 @@
+
 import google.generativeai as genai
+from google.generativeai import caching
+import datetime
 import logging
 from config import GEMINI_API_KEY
 
@@ -23,6 +26,48 @@ COMPANY_INFO = """
 - Заказать товар можно только связавшись с менеджером по телеграм/вотсап или по телефону напрямую, 
 а получить уже либо самовывозом по заранее оговоренному времени либо доставкой
 """
+current_cache = None
+
+
+def create_or_update_cache(products_text):
+    """Создает кэш контекста на серверах Google на 30 дней"""
+    global current_cache
+
+    # Если старый кэш был — удаляем его, чтобы не платить за хранение лишнего
+    if current_cache:
+        try:
+            current_cache.delete()
+        except:
+            pass
+
+    # Создаем новый кэш
+    current_cache = caching.CachedContent.create(
+        model='models/gemini-1.5-flash-001',  # Кэш привязывается к конкретной модели
+        display_name="amway_price_cache",
+        system_instruction="Ты — вежливый кассир магазина в Батуми. Используй этот прайс-лист для расчетов.",
+        contents=[products_text],
+        ttl=datetime.timedelta(days=30),  # Кэш живет в Google 30 дней
+    )
+    logging.info(f"✅ Создан новый кэш в Google: {current_cache.name}")
+    return current_cache
+
+
+def ask_gemini_with_cache(user_request, products_text, history_text):
+    global current_cache
+
+    # Если кэша еще нет в Google — создаем
+    if not current_cache:
+        create_or_update_cache(products_text)
+
+    # Используем модель, привязанную к кэшу
+    model = genai.GenerativeModel(model_name='models/gemini-1.5-flash-001')
+
+    prompt = f"История: {history_text}\nЗапрос клиента: {user_request}"
+
+    # Отправляем запрос, используя сохраненный контекст (это в разы дешевле!)
+    response = model.generate_content(prompt, tool_config={'function_calling_config': 'NONE'})
+    return response.text
+
 
 def ask_gemini(user_request, products, history_text):
     """ТВОЙ ЖИВОЙ КАССИР (БЕЗ ИЗМЕНЕНИЙ В ТЕКСТЕ)"""
