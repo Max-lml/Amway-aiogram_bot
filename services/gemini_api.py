@@ -6,7 +6,7 @@ from config import GEMINI_API_KEY
 genai.configure(api_key=GEMINI_API_KEY)
 
 
-MODEL_NAME = 'gemini-2.5-flash-lite'
+MODEL_NAME = 'gemini-2.5-flash'
 model = genai.GenerativeModel(MODEL_NAME)
 
 # Твоя база знаний без изменений
