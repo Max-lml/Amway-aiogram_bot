@@ -48,7 +48,7 @@ async def get_airtable_data(need_description=False, force_update=False):
 
                     # 2. Копия без описания (для калькулятора)
                     fields_no_desc = dict(fields)
-                    fields_no_desc.pop("Описание", None)
+                    fields_no_desc.pop("Attachment Summary", None)
                     list_without_desc.append(fields_no_desc)
 
                 # 3. СОХРАНЯЕМ В КЭШ

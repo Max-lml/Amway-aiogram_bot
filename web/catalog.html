@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Каталог Amway Batumi</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #222222);
+            margin: 0; padding: 12px;
+        }
+        .catalog-title { text-align: center; font-size: 20px; margin-bottom: 15px; font-weight: bold; }
+
+        /* Стили фильтров */
+        .filters-container {
+            background-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
+            padding: 12px; border-radius: 12px; margin-bottom: 16px;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .filter-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .filter-row span { font-size: 13px; font-weight: 600; }
+        select {
+            flex: 1; padding: 6px 10px; border-radius: 8px;
+            border: 1px solid #ccc; background-color: var(--tg-theme-bg-color, #fff);
+            color: var(--tg-theme-text-color, #000); font-size: 13px;
+        }
+
+        /* Сетка каталога */
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .card {
+            background-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
+            border-radius: 12px; padding: 10px; display: flex; flex-direction: column;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+        }
+        .card img { width: 100%; aspect-ratio: 1; border-radius: 8px; object-fit: cover; background: #e4e4e7; }
+        .title { font-size: 13px; font-weight: 600; margin: 6px 0 4px 0; min-height: 32px; overflow: hidden; }
+        .articul { font-size: 11px; color: #8a8a8f; }
+        .volume { font-size: 11px; color: #8a8a8f; margin-bottom: 4px; }
+
+        /* Статусы наличия */
+        .status-badge { font-size: 11px; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 8px; width: fit-content; }
+        .in-stock { background-color: #d1fae5; color: #065f46; }
+        .pre-order { background-color: #f3f4f6; color: #374151; }
+
+        /* Описание-спойлер */
+        .desc-container { margin-bottom: 8px; }
+        .desc-text { font-size: 11px; color: var(--tg-theme-hint-color, #6b7280); display: none; margin-top: 4px; line-height: 1.3; }
+        .desc-btn { font-size: 11px; color: #3b82f6; background: none; border: none; padding: 0; cursor: pointer; font-weight: 600; }
+
+        .price-row { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 4px; }
+        .price { font-size: 15px; font-weight: bold; color: #10b981; }
+    </style>
+</head>
+<body>
+    <div class="catalog-title">🛍 Каталог Amway</div>
+
+    <div class="filters-container">
+        <div class="filter-row">
+            <span>Категория:</span>
+            <select id="category-filter" onchange="filterProducts()">
+                <option value="all">Все категории</option>
+            </select>
+        </div>
+        <div class="filter-row">
+            <span>Доступность:</span>
+            <select id="stock-filter" onchange="filterProducts()">
+                <option value="all">Все товары</option>
+                <option value="instock">В наличии</option>
+                <option value="preorder">Предзаказ</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="grid" id="catalog-grid"></div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        let allProducts = [];
+
+        async function loadProducts() {
+            try {
+                const response = await fetch('/api/products');
+                allProducts = await response.json();
+
+                // Автоматически наполняем фильтр категорий уникальными значениями
+                const categorySelect = document.getElementById('category-filter');
+                const categories = new Set();
+                allProducts.forEach(p => { if(p.category) categories.add(p.category); });
+                categories.forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = cat; opt.textContent = cat;
+                    categorySelect.appendChild(opt);
+                });
+
+                renderGrid(allProducts);
+            } catch (e) {
+                document.getElementById('catalog-grid').innerHTML = "<p style='grid-column: 1/-1; text-align:center;'>Ошибка загрузки каталога.</p>";
+            }
+        }
+
+        function renderGrid(products) {
+            const grid = document.getElementById('catalog-grid');
+            grid.innerHTML = "";
+
+            if (products.length === 0) {
+                grid.innerHTML = "<p style='grid-column: 1/-1; text-align:center; color:#8a8a8f;'>Товары не найдены...</p>";
+                return;
+            }
+
+            products.forEach((p, index) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+
+                const fullName = p.category ? (p.category + ' — ' + p.name) : p.name;
+
+                // ИСПРАВЛЕНО: Принудительно переводим количество в число и проверяем
+                const qty = Number(p.quantity);
+                const isInStock = !isNaN(qty) && qty > 0;
+
+                // Создаем элементы карточки
+                card.innerHTML = `
+                    <img src="${p.photo}" alt="${fullName}">
+                    <div class="title">${fullName}</div>
+                    <div class="articul">Арт: ${p.articul}</div>
+                    <div class="volume">${p.volume ? 'Объем: ' + p.volume : ''}</div>
+
+                    <div class="status-badge ${isInStock ? 'in-stock' : 'pre-order'}">
+                        ${isInStock ? '● В наличии' : '○ Предзаказ'}
+                    </div>
+
+                    ${p.description && p.description !== 'None' && p.description !== '—' ? `
+                        <div class="desc-container">
+                            <button class="desc-btn" onclick="toggleDesc(${index})">Подробнее ↓</button>
+                            <div class="desc-text" id="desc-${index}">${p.description}</div>
+                        </div>
+                    ` : ''}
+
+                    <div class="price-row">
+                        <div class="price">${p.price} ₾</div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Логика разворачивания описания
+        function toggleDesc(index) {
+            const desc = document.getElementById(`desc-${index}`);
+            const btn = desc.previousElementSibling;
+            if (desc.style.display === "block") {
+                desc.style.display = "none";
+                btn.textContent = "Подробнее ↓";
+            } else {
+                desc.style.display = "block";
+                btn.textContent = "Скрыть ↑";
+            }
+        }
+
+        // Функция фильтрации
+        function filterProducts() {
+            const catValue = document.getElementById('category-filter').value;
+            const stockValue = document.getElementById('stock-filter').value;
+
+            const filtered = allProducts.filter(p => {
+                const matchCat = (catValue === 'all' || p.category === catValue);
+
+                // ИСПРАВЛЕНО: Преобразуем количество в строгое число для фильтрации
+                const qty = Number(p.quantity);
+                const isValidQty = !isNaN(qty);
+
+                let matchStock = false;
+                if (stockValue === 'all') {
+                    matchStock = true;
+                } else if (stockValue === 'instock') {
+                    matchStock = isValidQty && qty > 0;
+                } else if (stockValue === 'preorder') {
+                    matchStock = !isValidQty || qty <= 0;
+                }
+
+                return matchCat && matchStock;
+            });
+
+            renderGrid(filtered);
+        }
+
+        loadProducts();
+    </script>
+</body>
+</html>
