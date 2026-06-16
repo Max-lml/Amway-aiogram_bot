@@ -1,18 +1,19 @@
-
 import google.generativeai as genai
 from google.generativeai import caching
 import datetime
 import logging
+import base64
+import os
 from config import GEMINI_API_KEY
 
-# Настраиваем Google
+# Настраиваем Google API ключ глобально
 genai.configure(api_key=GEMINI_API_KEY)
 
-
+# Единая рабочая модель для всего файла
 MODEL_NAME = 'gemini-2.5-flash'
 model = genai.GenerativeModel(MODEL_NAME)
 
-# Твоя база знаний без изменений
+# База знаний магазина
 COMPANY_INFO = """
 БАЗА ЗНАНИЙ МАГАЗИНА (ОСНОВНАЯ ИНФОРМАЦИЯ):
 - Локация: Работаем в Батуми. Официального офиса нет, работаем только онлайн.
@@ -27,6 +28,7 @@ COMPANY_INFO = """
 а получить уже либо самовывозом по заранее оговоренному времени либо доставкой. Оплата наличными при получении, либо 
 перевод на карту TBC.
 """
+
 current_cache = None
 
 
@@ -34,44 +36,42 @@ def create_or_update_cache(products_text):
     """Создает кэш контекста на серверах Google на 30 дней"""
     global current_cache
 
-    # Если старый кэш был — удаляем его, чтобы не платить за хранение лишнего
     if current_cache:
         try:
             current_cache.delete()
         except:
             pass
 
-    # Создаем новый кэш
+    # Перевели кэш на модель gemini-2.5-flash
     current_cache = caching.CachedContent.create(
-        model='models/gemini-1.5-flash-001',  # Кэш привязывается к конкретной модели
+        model=f'models/{MODEL_NAME}',
         display_name="amway_price_cache",
         system_instruction="Ты — вежливый кассир магазина в Батуми. Используй этот прайс-лист для расчетов.",
         contents=[products_text],
-        ttl=datetime.timedelta(days=30),  # Кэш живет в Google 30 дней
+        ttl=datetime.timedelta(days=30),
     )
     logging.info(f"✅ Создан новый кэш в Google: {current_cache.name}")
     return current_cache
 
 
 def ask_gemini_with_cache(user_request, products_text, history_text):
+    """Работа с кэшированным контекстом для экономии токенов"""
     global current_cache
 
-    # Если кэша еще нет в Google — создаем
     if not current_cache:
         create_or_update_cache(products_text)
 
-    # Используем модель, привязанную к кэшу
-    model = genai.GenerativeModel(model_name='models/gemini-1.5-flash-001')
+    # Синхронизировали модель с глобальной переменной
+    cached_model = genai.GenerativeModel(model_name=f'models/{MODEL_NAME}')
 
     prompt = f"История: {history_text}\nЗапрос клиента: {user_request}"
 
-    # Отправляем запрос, используя сохраненный контекст (это в разы дешевле!)
-    response = model.generate_content(prompt, tool_config={'function_calling_config': 'NONE'})
+    response = cached_model.generate_content(prompt, tool_config={'function_calling_config': 'NONE'})
     return response.text
 
 
 def ask_gemini(user_request, products, history_text):
-    """ТВОЙ ЖИВОЙ КАССИР (БЕЗ ИЗМЕНЕНИЙ В ТЕКСТЕ)"""
+    """ТВОЙ ЖИВОЙ КАССИР"""
     prompt = f"""
     Ты — вежливый, внимательный и живой ассистент-кассир нашего магазина. 
     Твоя задача — помогать клиентам с расчетом стоимости товаров.
@@ -108,8 +108,9 @@ def ask_gemini(user_request, products, history_text):
             return "🕒 Извините, лимит бесплатных запросов на сегодня исчерпан. Попробуйте чуть позже."
         return "⚠️ Произошла временная ошибка связи с ИИ. Попробуйте еще раз."
 
+
 def ask_gemini_consult(user_question, products, history_text):
-    """ТВОЙ КОНСУЛЬТАНТ (БЕЗ ИЗМЕНЕНИЙ В ТЕКСТЕ)"""
+    """ТВОЙ КОНСУЛЬТАНТ"""
     prompt = f"""
     Ты — вежливый и профессиональный менеджер-консультант нашего магазина.
     Твоя задача — ответить на вопрос клиента, опираясь ТОЛЬКО на предоставленные ниже данные.
@@ -141,19 +142,34 @@ def ask_gemini_consult(user_question, products, history_text):
             return "🕒 Извините, лимит бесплатных консультаций исчерпан. Скоро буду снова в сети!"
         return "⚠️ Не удалось получить ответ от менеджера. Попробуйте позже."
 
+
 def ask_gemini_voice(audio_path, products, history_text, mode="calc"):
-    """ТВОЙ ГОЛОСОВОЙ РЕЖИМ (БЕЗ ИЗМЕНЕНИЙ В ТЕКСТЕ)"""
+    """ТВОЙ ГОЛОСОВОЙ РЕЖИМ (Передача через Inline Base64)"""
     try:
-        audio_file = genai.upload_file(path=audio_path)
+        # 1. Считываем и кодируем аудио в Base64 string
+        with open(audio_path, "rb") as f:
+            audio_base64 = base64.b64encode(f.read()).decode("utf-8")
 
+        # 2. Формируем промпты в зависимости от сценария
         if mode == "calc":
-            prompt = f"Ты — вежливый кассир... Прайс: {products}. История: {history_text}." # Тут твои промпты из кода выше
+            prompt = f"Ты — вежливый кассир. Помоги рассчитать стоимость. Прайс: {products}. История: {history_text}."
         else:
-            prompt = f"Ты — консультант... База: {COMPANY_INFO}. Прайс: {products}."
+            prompt = f"Ты — консультант. Ответь на вопрос. База: {COMPANY_INFO}. Прайс: {products}. История: {history_text}."
 
-        response = model.generate_content([prompt, audio_file])
-        audio_file.delete()
-        return response.text
+        # 3. Структура инлайн-данных для SDK
+        audio_part = {
+            "mime_type": "audio/ogg",
+            "data": audio_base64
+        }
+
+        # Принудительная конфигурация ключа перед отправкой «тяжелого» пакета
+        genai.configure(api_key=GEMINI_API_KEY)
+        voice_model = genai.GenerativeModel(MODEL_NAME)
+
+        # Отправляем аудио и промпт одним махом
+        result = voice_model.generate_content([prompt, audio_part])
+        return result.text
+
     except Exception as e:
         logging.error(f"Ошибка Gemini (Voice): {e}")
         return "❌ Ошибка обработки голосового сообщения. Попробуйте написать текстом."
