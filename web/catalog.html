@@ -85,7 +85,8 @@
 
         async function loadProducts() {
             try {
-                const response = await fetch('/api/products');
+                // ИСПРАВЛЕНО: Указан полный абсолютный путь к твоему серверу Amvera
+                const response = await fetch('https://aiamway-maxlml.amvera.io/api/products');
                 allProducts = await response.json();
 
                 // Автоматически наполняем фильтр категорий уникальными значениями
