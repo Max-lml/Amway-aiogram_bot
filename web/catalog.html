@@ -119,13 +119,16 @@
 
                 const fullName = p.category ? (p.category + ' — ' + p.name) : p.name;
 
-                // ИСПРАВЛЕНО: Принудительно переводим количество в число и проверяем
+                // Принудительно переводим количество в число и проверяем
                 const qty = Number(p.quantity);
                 const isInStock = !isNaN(qty) && qty > 0;
 
-                // Создаем элементы карточки
+                // Ссылка на уютную комнату-заглушку
+                const placeholderUrl = "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=600&q=80";
+
+                // Создаем элементы карточки с условием ИЛИ для картинок
                 card.innerHTML = `
-                    <img src="${p.photo}" alt="${fullName}">
+                    <img src="${p.photo || placeholderUrl}" alt="${fullName}" onerror="this.onerror=null; this.src='${placeholderUrl}';">
                     <div class="title">${fullName}</div>
                     <div class="articul">Арт: ${p.articul}</div>
                     <div class="volume">${p.volume ? 'Объем: ' + p.volume : ''}</div>
@@ -170,7 +173,7 @@
             const filtered = allProducts.filter(p => {
                 const matchCat = (catValue === 'all' || p.category === catValue);
 
-                // ИСПРАВЛЕНО: Преобразуем количество в строгое число для фильтрации
+                // Преобразуем количество в строгое число для фильтрации
                 const qty = Number(p.quantity);
                 const isValidQty = !isNaN(qty);
 
