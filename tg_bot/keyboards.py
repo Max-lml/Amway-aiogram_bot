@@ -14,7 +14,10 @@ admin_keyboard = ReplyKeyboardMarkup(
         ],
         # Третий ряд (кнопка на всю ширину)
         [
-            KeyboardButton(text="📊 Оценить капитал склада")
+            KeyboardButton(text="📊 Оценить капитал склада"),
+            KeyboardButton(text="📦 О доставке и самовывозе"),
+            KeyboardButton(text="💬 Задать вопрос менеджеру"),
+            KeyboardButton(text="🔄 Обновить прайс")
         ]
     ],
     resize_keyboard=True

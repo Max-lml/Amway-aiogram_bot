@@ -44,15 +44,19 @@ async def force_update_cache(message: types.Message):
     await message.answer("🔄 Кэш сброшен! База обновится при следующем запросе.")
 
 
-@router.message(Command("refresh_price"))
+@router.message(F.text == "🔄 Обновить прайс")
 async def refresh_price_command(message: types.Message):
     if message.from_user.id == ADMIN_ID:
         await message.answer("🔄 Начинаю полное обновление данных из Airtable и пересоздание кэша в Google...")
         try:
+            # Принудительно обновляем кэш в Airtable
             new_products = await get_airtable_data(need_description=True, force_update=True)
+
+            # Обновляем контекст для Gemini
             products_text = str(new_products)
             create_or_update_cache(products_text)
-            await message.answer("✅ Прайс-лист и кэш Google успешно обновлены на 30 дней!")
+
+            await message.answer("✅ Прайс-лист и кэш Gemini успешно обновлены!")
         except Exception as e:
             logging.error(f"Ошибка при обновлении: {e}")
             await message.answer(f"❌ Произошла ошибка при обновлении: {e}")
