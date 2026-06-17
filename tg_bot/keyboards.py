@@ -10,7 +10,7 @@ admin_keyboard = ReplyKeyboardMarkup(
         ],
         # Второй ряд (кнопка на всю ширину)
         [
-            KeyboardButton(text="🛍 Открыть каталог", web_app=WebAppInfo(url="https://aiamway-maxlml.amvera.io/"))
+            KeyboardButton(text="🛍 Открыть каталог", web_app=WebAppInfo(url="https://aiamway-maxlml.amvera.io"))
         ],
         # Третий ряд (кнопка на всю ширину)
         [
@@ -28,7 +28,7 @@ main_keyboard = ReplyKeyboardMarkup(
         [
             KeyboardButton(text="💰 Рассчитать заказ"),
             # ДЛЯ ТЕСТА НА КОМПЬЮТЕРЕ СТАВИМ LOCALHOST:
-            KeyboardButton(text="🛍 Открыть каталог", web_app=WebAppInfo(url="https://aiamway-maxlml.amvera.io/"))
+            KeyboardButton(text="🛍 Открыть каталог", web_app=WebAppInfo(url="https://aiamway-maxlml.amvera.io"))
         ],
         [
             KeyboardButton(text="📦 О доставке и самовывозе"),
