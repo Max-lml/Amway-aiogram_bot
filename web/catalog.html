@@ -85,7 +85,7 @@
 
         async function loadProducts() {
             try {
-                // ИСПРАВЛЕНО: Указан полный абсолютный путь к твоему серверу Amvera
+                // Подставляем абсолютный адрес Amvera для стабильности запроса данных
                 const response = await fetch('https://aiamway-maxlml.amvera.io/api/products');
                 allProducts = await response.json();
 
@@ -127,7 +127,7 @@
                 // Ссылка на уютную комнату-заглушку
                 const placeholderUrl = "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=600&q=80";
 
-                // Создаем элементы карточки с условием ИЛИ для картинок
+                // ИСПРАВЛЕНО СИНТАКСИЧЕСКИ: Строка обернута в косые кавычки, убран лишний слэш перед переменной заглушки
                 card.innerHTML = `
                     <img src="${p.photo || placeholderUrl}" alt="${fullName}" onerror="this.onerror=null; this.src='${placeholderUrl}';">
                     <div class="title">${fullName}</div>
