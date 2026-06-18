@@ -85,12 +85,18 @@
 
         async function loadProducts() {
             try {
-                // Подставляем абсолютный адрес Amvera для стабильности запроса данных
-                const response = await fetch('https://aiamway-maxlml.amvera.io/api/products');
+                // Жестко локальный относительный путь
+                const response = await fetch('/api/products');
                 allProducts = await response.json();
 
-                // Автоматически наполняем фильтр категорий уникальными значениями
+                // Выводим в консоль браузера для проверки
+                console.log("=== ЛОКАЛЬНАЯ ОТЛАДКА ФРОНТЕНДА ===");
+                console.log("Количество полученных товаров:", allProducts.length);
+                console.log("Сами данные товаров:", allProducts);
+
                 const categorySelect = document.getElementById('category-filter');
+                categorySelect.innerHTML = '<option value="all">Все категории</option>'; // Очищаем старое
+
                 const categories = new Set();
                 allProducts.forEach(p => { if(p.category) categories.add(p.category); });
                 categories.forEach(cat => {
@@ -101,6 +107,7 @@
 
                 renderGrid(allProducts);
             } catch (e) {
+                console.error("Критическая ошибка во фронтенде:", e);
                 document.getElementById('catalog-grid').innerHTML = "<p style='grid-column: 1/-1; text-align:center;'>Ошибка загрузки каталога.</p>";
             }
         }
@@ -127,26 +134,32 @@
                 // Ссылка на уютную комнату-заглушку
                 const placeholderUrl = "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=600&q=80";
 
-                // ИСПРАВЛЕНО СИНТАКСИЧЕСКИ: Строка обернута в косые кавычки, убран лишний слэш перед переменной заглушки
+                // Выносим блок описания в отдельную переменную, чтобы не путать фигурные скобки внутри строки верстки
+                let descriptionHtml = "";
+                if (p.description && p.description !== 'None' && p.description !== '—' && p.description.trim() !== '') {
+                    descriptionHtml = `
+                        <div class="desc-container">
+                            <button class="desc-btn" onclick="toggleDesc(${index})">Подробнее ↓</button>
+                            <div class="desc-text" id="desc-${index}">${p.description}</div>
+                        </div>
+                    `;
+                }
+
+                // Создаем элементы карточки - ТЕПЕРЬ СИНТАКСИЧЕСКИ ИДЕАЛЬНО
                 card.innerHTML = `
                     <img src="${p.photo || placeholderUrl}" alt="${fullName}" onerror="this.onerror=null; this.src='${placeholderUrl}';">
                     <div class="title">${fullName}</div>
-                    <div class="articul">Арт: ${p.articul}</div>
+                    <div class="articul">Арт: ${p.articul || '—'}</div>
                     <div class="volume">${p.volume ? 'Объем: ' + p.volume : ''}</div>
 
                     <div class="status-badge ${isInStock ? 'in-stock' : 'pre-order'}">
                         ${isInStock ? '● В наличии' : '○ Предзаказ'}
                     </div>
 
-                    ${p.description && p.description !== 'None' && p.description !== '—' ? `
-                        <div class="desc-container">
-                            <button class="desc-btn" onclick="toggleDesc(${index})">Подробнее ↓</button>
-                            <div class="desc-text" id="desc-${index}">${p.description}</div>
-                        </div>
-                    ` : ''}
+                    ${descriptionHtml}
 
                     <div class="price-row">
-                        <div class="price">${p.price} ₾</div>
+                        <div class="price">${p.price || '—'} ₾</div>
                     </div>
                 `;
                 grid.appendChild(card);
