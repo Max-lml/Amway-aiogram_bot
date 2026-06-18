@@ -85,17 +85,14 @@
 
         async function loadProducts() {
             try {
-                // Жестко локальный относительный путь
                 const response = await fetch('/api/products');
                 allProducts = await response.json();
 
-                // Выводим в консоль браузера для проверки
-                console.log("=== ЛОКАЛЬНАЯ ОТЛАДКА ФРОНТЕНДА ===");
+                console.log("=== ОТЛАДКА ФРОНТЕНДА ===");
                 console.log("Количество полученных товаров:", allProducts.length);
-                console.log("Сами данные товаров:", allProducts);
 
                 const categorySelect = document.getElementById('category-filter');
-                categorySelect.innerHTML = '<option value="all">Все категории</option>'; // Очищаем старое
+                categorySelect.innerHTML = '<option value="all">Все категории</option>';
 
                 const categories = new Set();
                 allProducts.forEach(p => { if(p.category) categories.add(p.category); });
@@ -127,14 +124,12 @@
 
                 const fullName = p.category ? (p.category + ' — ' + p.name) : p.name;
 
-                // Принудительно переводим количество в число и проверяем
-                const qty = Number(p.quantity);
-                const isInStock = !isNaN(qty) && qty > 0;
+                // Переводим количество в число (объявляем ОДИН РАЗ на функцию)
+                const productQty = Number(p.quantity);
+                const isInStock = !isNaN(productQty) && productQty > 0;
 
-                // Ссылка на уютную комнату-заглушку
                 const placeholderUrl = "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=600&q=80";
 
-                // Выносим блок описания в отдельную переменную, чтобы не путать фигурные скобки внутри строки верстки
                 let descriptionHtml = "";
                 if (p.description && p.description !== 'None' && p.description !== '—' && p.description.trim() !== '') {
                     descriptionHtml = `
@@ -145,7 +140,6 @@
                     `;
                 }
 
-                // Создаем элементы карточки - ТЕПЕРЬ СИНТАКСИЧЕСКИ ИДЕАЛЬНО
                 card.innerHTML = `
                     <img src="${p.photo || placeholderUrl}" alt="${fullName}" onerror="this.onerror=null; this.src='${placeholderUrl}';">
                     <div class="title">${fullName}</div>
@@ -166,7 +160,6 @@
             });
         }
 
-        // Логика разворачивания описания
         function toggleDesc(index) {
             const desc = document.getElementById(`desc-${index}`);
             const btn = desc.previousElementSibling;
@@ -179,7 +172,6 @@
             }
         }
 
-        // Функция фильтрации
         function filterProducts() {
             const catValue = document.getElementById('category-filter').value;
             const stockValue = document.getElementById('stock-filter').value;
@@ -187,17 +179,17 @@
             const filtered = allProducts.filter(p => {
                 const matchCat = (catValue === 'all' || p.category === catValue);
 
-                // Преобразуем количество в строгое число для фильтрации
-                const qty = Number(p.quantity);
-                const isValidQty = !isNaN(qty);
+                // Используем локальное имя фильтрации без конфликтов с renderGrid
+                const filterQty = Number(p.quantity);
+                const isValidQty = !isNaN(filterQty);
 
                 let matchStock = false;
                 if (stockValue === 'all') {
                     matchStock = true;
                 } else if (stockValue === 'instock') {
-                    matchStock = isValidQty && qty > 0;
+                    matchStock = isValidQty && filterQty > 0;
                 } else if (stockValue === 'preorder') {
-                    matchStock = !isValidQty || qty <= 0;
+                    matchStock = !isValidQty || filterQty <= 0;
                 }
 
                 return matchCat && matchStock;
