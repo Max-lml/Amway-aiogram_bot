@@ -28,8 +28,13 @@
             color: var(--tg-theme-text-color, #000); font-size: 13px;
         }
 
-        /* Сетка каталога */
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        /* Сетка каталога (ИСПРАВЛЕНО НА АДАПТИВНУЮ) */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+            gap: 12px;
+        }
+
         .card {
             background-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
             border-radius: 12px; padding: 10px; display: flex; flex-direction: column;
@@ -122,7 +127,6 @@
                 const card = document.createElement('div');
                 card.className = 'card';
 
-                // СПЕЦИАЛЬНО ПЕРЕИМЕНОВАНО в itemTitle, чтобы 100% сбросить старый кэш!
                 const itemTitle = p.category ? (p.category + ' — ' + p.name) : (p.name || 'Товар');
 
                 const productQty = Number(p.quantity);
