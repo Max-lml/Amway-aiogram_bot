@@ -122,9 +122,9 @@
                 const card = document.createElement('div');
                 card.className = 'card';
 
-                const fullName = p.category ? (p.category + ' — ' + p.name) : p.name;
+                // СПЕЦИАЛЬНО ПЕРЕИМЕНОВАНО в itemTitle, чтобы 100% сбросить старый кэш!
+                const itemTitle = p.category ? (p.category + ' — ' + p.name) : (p.name || 'Товар');
 
-                // Переводим количество в число (объявляем ОДИН РАЗ на функцию)
                 const productQty = Number(p.quantity);
                 const isInStock = !isNaN(productQty) && productQty > 0;
 
@@ -141,8 +141,8 @@
                 }
 
                 card.innerHTML = `
-                    <img src="${p.photo || placeholderUrl}" alt="${fullName}" onerror="this.onerror=null; this.src='${placeholderUrl}';">
-                    <div class="title">${fullName}</div>
+                    <img src="${p.photo || placeholderUrl}" alt="${itemTitle}" onerror="this.onerror=null; this.src='${placeholderUrl}';">
+                    <div class="title">${itemTitle}</div>
                     <div class="articul">Арт: ${p.articul || '—'}</div>
                     <div class="volume">${p.volume ? 'Объем: ' + p.volume : ''}</div>
 
@@ -179,7 +179,6 @@
             const filtered = allProducts.filter(p => {
                 const matchCat = (catValue === 'all' || p.category === catValue);
 
-                // Используем локальное имя фильтрации без конфликтов с renderGrid
                 const filterQty = Number(p.quantity);
                 const isValidQty = !isNaN(filterQty);
 
