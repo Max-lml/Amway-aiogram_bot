@@ -69,7 +69,7 @@ async def handle_get_products_api(request):
         return web.json_response([], status=500)
 
     clean_products = []
-    MY_BRAND_LOGO = "https://disk.yandex.ru/i/dRTX_P_WOfyIXw"
+    MY_BRAND_LOGO = ""
 
     for index, p in enumerate(raw_products):
         # Смотрим, какие ключи вообще есть в первой строчке (для отладки структуры)
