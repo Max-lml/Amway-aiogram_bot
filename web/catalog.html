@@ -28,17 +28,30 @@
             color: var(--tg-theme-text-color, #000); font-size: 13px;
         }
 
-        /* Умная сетка: адаптирована, чтобы карточки не наезжали и смотрелись гармонично */
+        /* Умная и гибкая сетка, которая на телефонах принудительно держит 2 колонки */
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(2, 1fr); /* Жестко 2 колонки на мобилках */
+            gap: 10px;
+        }
+
+        /* Медиа-запрос: если экран широкий (например, компьютер или планшет), колонок станет больше */
+        @media (min-width: 480px) {
+            .grid {
+                grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+                gap: 12px;
+            }
         }
 
         .card {
             background-color: var(--tg-theme-secondary-bg-color, #f4f4f5);
-            border-radius: 12px; padding: 10px; display: flex; flex-direction: column;
+            border-radius: 12px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
             box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+            box-sizing: border-box; /* Чтобы отступы не распирали карточку */
+            overflow: hidden;
         }
         .card img { width: 100%; aspect-ratio: 1; border-radius: 8px; object-fit: cover; background: #e4e4e7; }
         .title { font-size: 13px; font-weight: 600; margin: 6px 0 4px 0; min-height: 32px; overflow: hidden; }
