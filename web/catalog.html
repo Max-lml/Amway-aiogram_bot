@@ -28,7 +28,7 @@
             color: var(--tg-theme-text-color, #000); font-size: 13px;
         }
 
-                /* Умная сетка: сама решает, сколько колонок влезает на экран */
+        /* Умная сетка: сама решает, сколько колонок влезает на экран */
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
@@ -93,9 +93,6 @@
                 const response = await fetch('/api/products');
                 allProducts = await response.json();
 
-                console.log("=== ОТЛАДКА ФРОНТЕНДА ===");
-                console.log("Количество полученных товаров:", allProducts.length);
-
                 const categorySelect = document.getElementById('category-filter');
                 categorySelect.innerHTML = '<option value="all">Все категории</option>';
 
@@ -132,7 +129,11 @@
                 const productQty = Number(p.quantity);
                 const isInStock = !isNaN(productQty) && productQty > 0;
 
-                const placeholderUrl = "";
+                // Встроенная векторная серая заглушка (не требует интернета и ссылок)
+                const placeholderUrl = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22400%22%20height%3D%22400%22%20viewBox%3D%220%200%20400%20400%22%3E%3Crect%20width%3D%22400%22%20height%3D%22400%22%20fill%3D%22%23e4e4e7%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20fill%3D%22%23a1a1aa%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3E%D0%9D%D0%B5%D1%82%20%D1%84%D0%BE%D1%82%D0%BE%3C%2Ftext%3E%3C%2Fsvg%3E";
+
+                // Проверяем, есть ли валидная ссылка, иначе ставим заглушку
+                const validPhoto = (p.photo && p.photo.trim() !== "") ? p.photo : placeholderUrl;
 
                 let descriptionHtml = "";
                 if (p.description && p.description !== 'None' && p.description !== '—' && p.description.trim() !== '') {
@@ -145,7 +146,7 @@
                 }
 
                 card.innerHTML = `
-                    <img src="${p.photo || placeholderUrl}" alt="${itemTitle}" onerror="this.onerror=null; this.src='${placeholderUrl}';">
+                    <img src="${validPhoto}" alt="${itemTitle}" onerror="this.onerror=null; this.src='${placeholderUrl}';">
                     <div class="title">${itemTitle}</div>
                     <div class="articul">Арт: ${p.articul || '—'}</div>
                     <div class="volume">${p.volume ? 'Объем: ' + p.volume : ''}</div>
