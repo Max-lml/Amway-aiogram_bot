@@ -71,7 +71,7 @@ async def btn_delivery_info(message: types.Message):
     await message.answer(COMPANY_INFO.strip())
 
 
-@router.message(F.text == "💬 Задать вопрос Максиму", StateFilter('*'))
+@router.message(F.text == "💬 Задать вопрос менеджеру", StateFilter('*'))
 async def btn_contact_manager(message: types.Message):
     await message.answer(
         "📝 Чтобы оформить заказ или задать вопрос напрямую, вы можете написать или позвонить менеджеру:\n\n"
