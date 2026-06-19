@@ -59,7 +59,6 @@ async def handle_get_products_api(request):
 
         logging.info(f"📋 [БЭКЕНД] Получено {len(raw_products)} сырых строк из Airtable.")
 
-        # Если пришел пустой список, пишем предупреждение
         if len(raw_products) == 0:
             logging.warning(
                 "⚠️ [БЭКЕНД] Массив из Airtable пустой. Возможно, кэш еще не создался. Напиши боту /update !")
@@ -69,10 +68,8 @@ async def handle_get_products_api(request):
         return web.json_response([], status=500)
 
     clean_products = []
-    MY_BRAND_LOGO = ""
 
     for index, p in enumerate(raw_products):
-        # Смотрим, какие ключи вообще есть в первой строчке (для отладки структуры)
         if index == 0:
             logging.info(f"🔍 [ОТЛАДКА] Ключи первой строки из Airtable: {list(p.keys())}")
 
@@ -83,7 +80,6 @@ async def handle_get_products_api(request):
         price = p.get('Price') or '—'
         description = p.get('Attachment Summary') or ''
 
-        # Проверяем, не пустая ли строка
         if not name and not category:
             logging.warning(f"⚠️ [БЭКЕНД] Строка #{index} пропущена: нет ни имени, ни категории. Данные: {p}")
             continue
@@ -103,14 +99,13 @@ async def handle_get_products_api(request):
                 if val_str in ['в наличии', 'yes', 'true', 'available', 'вналичии', '1', '3']:
                     quantity = 3
 
-        # Разбор фото
-        raw_photo = p.get('Photo')
-        photo_url = MY_BRAND_LOGO
-        if raw_photo:
-            if isinstance(raw_photo, list) and len(raw_photo) > 0:
-                photo_url = raw_photo[0].get('url', MY_BRAND_LOGO)
-            elif isinstance(raw_photo, str):
-                photo_url = raw_photo
+        # СВЯЗЫВАНИЕ КАРТИНКИ ПО АРТИКУЛУ ДЛЯ ОФФЛАЙН РЕЖИМА
+        articul_str = str(articul).strip()
+        file_name = articul_str if articul_str and articul_str != '—' else f"item_{index}"
+        file_name = "".join(c for c in file_name if c.isalnum() or c in ('_', '-'))[:50]
+
+        # Теперь передаем на фронтенд ссылку на нашу локальную папку static
+        photo_url = f"/static/{file_name}.jpg"
 
         clean_products.append({
             "category": str(category),
@@ -127,6 +122,7 @@ async def handle_get_products_api(request):
     logging.info("==================================================")
     return web.json_response(clean_products)
 
+
 # --- ЗАПУСК ВСЕЙ СИСТЕМЫ ---
 
 async def main():
@@ -135,7 +131,6 @@ async def main():
     dp.include_router(admin_tools_router)
     dp.include_router(router)
 
-
     # Создаем веб-сервер aiohttp
     app = web.Application()
 
@@ -143,11 +138,17 @@ async def main():
     app.router.add_get('/', handle_catalog_page)
     app.router.add_get('/api/products', handle_get_products_api)
 
+    # ИСПРАВЛЕНИЕ: Раздаем локальную папку static всему интернету
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    static_dir = os.path.join(current_dir, 'static')
+    if not os.path.exists(static_dir):
+        os.makedirs(static_dir, exist_ok=True)
+    app.router.add_static('/static/', path=static_dir)
+
     # Инициализируем бота в фоновом режиме внутри веб-сервера
     runner = web.AppRunner(app)
     await runner.setup()
 
-    # Amvera по умолчанию дает порт 8080 или использует переменную среды PORT
     port = int(os.environ.get("PORT", 8080))
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
