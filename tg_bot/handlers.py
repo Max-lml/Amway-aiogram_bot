@@ -7,20 +7,19 @@ from aiogram.filters import CommandStart, StateFilter, Command
 from aiogram.fsm.context import FSMContext
 
 from database.airtable_api import get_airtable_data, CACHE
-from services.gemini_api import ask_gemini, ask_gemini_consult, ask_gemini_voice, create_or_update_cache, COMPANY_INFO
+from services.gemini_api import ask_gemini, ask_gemini_consult, ask_gemini_voice, COMPANY_INFO
 from tg_bot.states import BotStates
 from tg_bot.keyboards import main_keyboard, admin_keyboard
-
+from config import ADMIN_ID
 router = Router()
 
-ADMIN_ID = 364213802
 
 
 @router.message(CommandStart(), StateFilter('*'))
 async def cmd_start(message: types.Message, state: FSMContext):
     await state.clear()
 
-    # Разделяем интерфейс на Максима и Клиентов
+    # Разделяем интерфейс на Максима (Администратора) и Клиентов
     if message.from_user.id == ADMIN_ID:
         await message.answer(
             "👋 Привет, Максим! Добро пожаловать в панель твоего AI-ассистента.\n"
@@ -29,33 +28,22 @@ async def cmd_start(message: types.Message, state: FSMContext):
         )
     else:
         await message.answer(
-            "👋 Здравствуйте! Я — автоматизированный помощник по базе продукции Amway в Батуми."
-            " Помогу сориентироваться в стоимости товаров, узнать детали доставки или рассчитать итоговую сумму заказа."
-            "Выберите подходящий раздел в меню или перейдите в «🛍 Открыть каталог» для"
-            " просмотра полного списка товаров 👇",
+            "👋 Здравствуйте! Я — автоматизированный помощник по базе продукции Amway в Батуми. "
+            "Помогу сориентироваться в стоимости товаров, узнать детали доставки или рассчитать итоговую сумму заказа. "
+            "Выберите подходящий раздел в меню или перейдите в «🛍 Открыть каталог» для "
+            "просмотра полного списка товаров 👇",
             reply_markup=main_keyboard
         )
-
-
-@router.message(F.text == "/update", StateFilter('*'))
-async def force_update_cache(message: types.Message):
-    CACHE["last_update"] = 0
-    await message.answer("🔄 Кэш сброшен! База обновится при следующем запросе.")
 
 
 @router.message(F.text == "🔄 Обновить прайс")
 async def refresh_price_command(message: types.Message):
     if message.from_user.id == ADMIN_ID:
-        await message.answer("🔄 Начинаю полное обновление данных из Airtable и пересоздание кэша в Google...")
+        await message.answer("🔄 Начинаю обновление данных из Airtable...")
         try:
-            # Принудительно обновляем кэш в Airtable
-            new_products = await get_airtable_data(need_description=True, force_update=True)
-
-            # Обновляем контекст для Gemini
-            products_text = str(new_products)
-            create_or_update_cache(products_text)
-
-            await message.answer("✅ Прайс-лист и кэш Gemini успешно обновлены!")
+            # Принудительно сбрасываем локальный кэш Airtable и скачиваем свежие данные
+            await get_airtable_data(need_description=True, force_update=True)
+            await message.answer("✅ Прайс-лист успешно обновлен в памяти бота! Платный кэш Google не задействован.")
         except Exception as e:
             logging.error(f"Ошибка при обновлении: {e}")
             await message.answer(f"❌ Произошла ошибка при обновлении: {e}")
@@ -102,13 +90,11 @@ async def btn_consult(message: types.Message, state: FSMContext):
 async def handle_text_messages(message: types.Message, state: FSMContext):
     current_state = await state.get_state()
 
-    # Если мы внутри режимов калькулятора/консультанта — сразу уходим в их логику
     if current_state == BotStates.waiting_for_calc.state:
         await handle_calc_logic(message, state)
     elif current_state == BotStates.waiting_for_consult.state:
         await handle_consult_logic(message, state)
     else:
-        # Если стейта нет и это случайный текст от клиента — мягко направляем на клавиатуру
         await message.answer(
             "Пожалуйста, выберите нужный режим на клавиатуре ниже, чтобы я смог вам помочь 👇\n\n"
             "🛍 Чтобы посмотреть ассортимент товаров с описаниями, нажмите кнопку «Открыть каталог».",
@@ -119,6 +105,7 @@ async def handle_text_messages(message: types.Message, state: FSMContext):
 async def handle_calc_logic(message: types.Message, state: FSMContext):
     processing_msg = await message.answer("⏳ Считаю...")
     try:
+        is_admin = (message.from_user.id == ADMIN_ID)
         products = await get_airtable_data(need_description=False)
         if not products:
             await processing_msg.edit_text("❌ Ошибка: не удалось получить прайс-лист.")
@@ -128,7 +115,8 @@ async def handle_calc_logic(message: types.Message, state: FSMContext):
         history = user_data.get("history", [])
         history_text = "\n".join(history) if history else "Это первое сообщение."
 
-        ai_response = await asyncio.to_thread(ask_gemini, message.text, products, history_text)
+        # Передаем флаг администратора для текстовых расчетов профита
+        ai_response = await asyncio.to_thread(ask_gemini, message.text, products, history_text, is_admin=is_admin)
 
         if len(ai_response) > 4000:
             ai_response = ai_response[:4000] + "\n\n[Ответ обрезан]"
@@ -185,6 +173,7 @@ async def handle_voice_message(message: types.Message, state: FSMContext):
     file_path = f"voice_{file_id}.ogg"
 
     try:
+        is_admin = (message.from_user.id == ADMIN_ID)
         file = await message.bot.get_file(file_id)
         await message.bot.download_file(file.file_path, destination=file_path)
 
@@ -195,8 +184,9 @@ async def handle_voice_message(message: types.Message, state: FSMContext):
         history = user_data.get("history", [])
         history_text = "\n".join(history) if history else "Это первое сообщение."
 
+        # Теперь и в голосовой режим передается флаг is_admin для скрытого подсчета профита
         ai_response = await asyncio.to_thread(
-            ask_gemini_voice, file_path, products, history_text, mode
+            ask_gemini_voice, file_path, products, history_text, mode, is_admin=is_admin
         )
 
         if os.path.exists(file_path):
