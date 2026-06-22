@@ -10,7 +10,7 @@ admin_keyboard = ReplyKeyboardMarkup(
         ],
         # 2. Витрина (на всю ширину)
         [
-            KeyboardButton(text="🛍 Открыть каталог", web_app=WebAppInfo(url="https://aiamway-maxlml.amvera.io/?v=3"))
+            KeyboardButton(text="🛍 Открыть каталог", web_app=WebAppInfo(url="https://earthen-relenting-antivirus.ngrok-free.dev"))
         ],
         # 3. Аналитика и управление (по 2 в ряд — самый удобный формат)
         [

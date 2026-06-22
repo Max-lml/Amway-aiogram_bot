@@ -2,7 +2,7 @@ import google.generativeai as genai
 import logging
 import base64
 import os
-from config import GEMINI_API_KEY
+from config import GEMINI_API_KEY, ADMIN_ID
 
 # Настраиваем Google API ключ глобально
 genai.configure(api_key=GEMINI_API_KEY)
@@ -28,12 +28,22 @@ COMPANY_INFO = """
 """
 
 
-def ask_gemini(user_request, products, history_text, is_admin=False):
-    """ТВОЙ ЖИВОЙ КАССИР (Экономный и безопасный текстовый режим)"""
+def ask_gemini(user_request, products, history_text, is_admin=False, user_id=None):
+    """ТВОЙ ЖИВОЙ КАССИР (С двойной защитой от слива профита обычным клиентам)"""
+
+    # СВЕРХБЕЗОПАСНОСТЬ: Если передан чужой ID, принудительно отключаем админ-режим
+    if user_id != ADMIN_ID:
+        is_admin = False
+
     profit_instruction = ""
     if is_admin:
-        profit_instruction = ("\n\nАДМИН-РЕЖИМ: Просуммируй столбец 'Profit' для всех товаров в этом заказе и"
-                              " добавь итоговую сумму профита в конце своего ответа.")
+        profit_instruction = (
+            "\n\n🚨 ВАЖНОЕ АДМИН-ПРАВИЛО: Ты общаешься с владельцем магазина (Максимом). "
+            "Строго ПОСЛЕ того, как полностью оформишь чек и напишешь 'Итого к оплате', "
+            "добавь с новой строки скрытую информацию: '📈 Скрытый профит с этого заказа: [сумма] лари.' "
+            "Посчитай её, просуммировав значения из столбца 'Profit' для всех товаров в чеке."
+        )
+
     prompt = f"""
     Ты — вежливый, внимательный и живой ассистент-кассир нашего магазина. 
     Твоя задача — помогать клиентам с расчетом стоимости товаров.
@@ -52,7 +62,8 @@ def ask_gemini(user_request, products, history_text, is_admin=False):
     1. Проанализируй запрос. Если клиент назвал товар, у которого в прайсе есть разные варианты (например, разный вес, объем или количество капсул), а он НЕ уточнил, какой именно нужен — ОТПРАВЬ ОБЕ ВАРИАЦИИ расчетов. Не выбирай за него!
     2. Если клиент задает вопрос по расчету (например, "почему ты посчитал именно так?", "а можно убрать один?"), отвечай ему простым, живым человеческим языком.
     3. ТОЛЬКО ЕСЛИ все товары и их объемы точно определены, выдай красивый чек.
-    4. Не предоставляй информацию по наличию, если тебя прямо об этом не спросят.{profit_instruction}
+    4. Не предоставляй информацию по наличию, если тебя прямо об этом не спросят.
+    {profit_instruction}
 
     КАК ОФОРМЛЯТЬ ЧЕК (если заказ понятен):
     Приветливо подтверди заказ и напиши список в таком формате:
@@ -60,7 +71,7 @@ def ask_gemini(user_request, products, history_text, is_admin=False):
 
     Итого к оплате: [Общая сумма].
 
-    Общайся естественно, как хороший и внимательный продавец. Но после "ИТОГО" (или после информации о профите, если включен АДМИН-РЕЖИМ) уже больше ничего писать не надо.
+    Общайся естественно, как хороший и внимательный продавец.
     """
     try:
         response = model.generate_content(prompt)
@@ -106,14 +117,16 @@ def ask_gemini_consult(user_question, products, history_text):
         return "⚠️ Не удалось получить ответ от менеджера. Попробуйте позже."
 
 
-def ask_gemini_voice(audio_path, products, history_text, mode="calc", is_admin=False):
+def ask_gemini_voice(audio_path, products, history_text, mode="calc", is_admin=False, user_id=None):
     """ТВОЙ ГОЛОСОВОЙ РЕЖИМ (Экономный — без создания платного облачного кэша Google)"""
     try:
-        # 1. Считываем и кодируем аудио в Base64 string
+        # Защита для голосового режима
+        if user_id != ADMIN_ID:
+            is_admin = False
+
         with open(audio_path, "rb") as f:
             audio_base64 = base64.b64encode(f.read()).decode("utf-8")
 
-        # 2. Формируем промпты в зависимости от сценария и роли
         profit_instruction = ""
         if is_admin and mode == "calc":
             profit_instruction = "\n\nАДМИН-РЕЖИМ: Просуммируй столбец 'Profit' для всех товаров в этом заказе и добавь итоговую сумму профита в конце своего ответа."
@@ -123,17 +136,14 @@ def ask_gemini_voice(audio_path, products, history_text, mode="calc", is_admin=F
         else:
             prompt = f"Ты — консультант. Ответь на вопрос. База: {COMPANY_INFO}. Прайс: {products}. История: {history_text}."
 
-        # 3. Структура инлайн-данных для SDK
         audio_part = {
             "mime_type": "audio/ogg",
             "data": audio_base64
         }
 
-        # Принудительная конфигурация ключа перед отправкой
         genai.configure(api_key=GEMINI_API_KEY)
         voice_model = genai.GenerativeModel(MODEL_NAME)
 
-        # Отправляем аудио и промпт как обычный контент — Google не будет брать деньги за хранилище!
         result = voice_model.generate_content([prompt, audio_part])
         return result.text
 
