@@ -4,14 +4,11 @@ import base64
 import os
 from config import GEMINI_API_KEY, ADMIN_ID
 
-# Настраиваем Google API ключ глобально
 genai.configure(api_key=GEMINI_API_KEY)
 
-# Единая рабочая модель для всего файла (работает без платного кэша Google)
 MODEL_NAME = 'gemini-2.5-flash'
 model = genai.GenerativeModel(MODEL_NAME)
 
-# База знаний магазина
 COMPANY_INFO = """
 ОСНОВНАЯ ИНФОРМАЦИЯ:
 - Локация: Работаем в Батуми. Официального офиса нет, работаем только онлайн.
@@ -29,19 +26,18 @@ COMPANY_INFO = """
 
 
 def ask_gemini(user_request, products, history_text, is_admin=False, user_id=None):
-    """ТВОЙ ЖИВОЙ КАССИР (С двойной защитой от слива профита обычным клиентам)"""
-
-    # СВЕРХБЕЗОПАСНОСТЬ: Если передан чужой ID, принудительно отключаем админ-режим
-    if user_id != ADMIN_ID:
+    if user_id is not None and int(user_id) != int(ADMIN_ID):
         is_admin = False
 
     profit_instruction = ""
     if is_admin:
         profit_instruction = (
             "\n\n🚨 ВАЖНОЕ АДМИН-ПРАВИЛО: Ты общаешься с владельцем магазина (Максимом). "
-            "Строго ПОСЛЕ того, как полностью оформишь чек и напишешь 'Итого к оплате', "
-            "добавь с новой строки скрытую информацию: '📈 Скрытый профит с этого заказа: [сумма] лари.' "
-            "Посчитай её, просуммировав значения из столбца 'Profit' для всех товаров в чеке."
+            "Строго ПОСЛЕ того, как полностью оформишь чек и напишешь 'Итого к оплате: [сумма]', "
+            "добавь с новой строки скрытый блок:\n"
+            "'📈 Скрытый профит с этого заказа: [сумма] лари.'\n"
+            "КАК СЧИТАТЬ ПРОФИТ: Возьми значение 'Profit' из прайса для каждого выбранного товара, "
+            "умножь его на количество штук этого товара в чеке и просуммируй для всех позиций."
         )
 
     prompt = f"""
@@ -84,7 +80,6 @@ def ask_gemini(user_request, products, history_text, is_admin=False, user_id=Non
 
 
 def ask_gemini_consult(user_question, products, history_text):
-    """ТВОЙ КОНСУЛЬТАНТ (Дешевый текстовый режим)"""
     prompt = f"""
     Ты — вежливый и профессиональный менеджер-консультант нашего магазина.
     Твоя задача — ответить на вопрос клиента, опираясь ТОЛЬКО на предоставленные ниже данные.
@@ -118,10 +113,8 @@ def ask_gemini_consult(user_question, products, history_text):
 
 
 def ask_gemini_voice(audio_path, products, history_text, mode="calc", is_admin=False, user_id=None):
-    """ТВОЙ ГОЛОСОВОЙ РЕЖИМ (Экономный — без создания платного облачного кэша Google)"""
     try:
-        # Защита для голосового режима
-        if user_id != ADMIN_ID:
+        if user_id is not None and int(user_id) != int(ADMIN_ID):
             is_admin = False
 
         with open(audio_path, "rb") as f:
@@ -129,7 +122,7 @@ def ask_gemini_voice(audio_path, products, history_text, mode="calc", is_admin=F
 
         profit_instruction = ""
         if is_admin and mode == "calc":
-            profit_instruction = "\n\nАДМИН-РЕЖИМ: Просуммируй столбец 'Profit' для всех товаров в этом заказе и добавь итоговую сумму профита в конце своего ответа."
+            profit_instruction = "\n\nАДМИН-РЕЖИМ: Перемножь маржу (Profit) каждого товара на количество и добавь итоговую сумму скрытого профита в конце своего ответа."
 
         if mode == "calc":
             prompt = f"Ты — вежливый кассир. Помоги рассчитать стоимость. Прайс: {products}.{profit_instruction} История: {history_text}."
