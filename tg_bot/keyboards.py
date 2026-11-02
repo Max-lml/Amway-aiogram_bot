@@ -30,7 +30,7 @@ main_keyboard = ReplyKeyboardMarkup(
         [
             KeyboardButton(text="💰 Рассчитать заказ"),
             # ДЛЯ ТЕСТА НА КОМПЬЮТЕРЕ СТАВИМ LOCALHOST:
-            KeyboardButton(text="🛍 Открыть каталог", web_app=WebAppInfo(url="https://aiamway-maxlml.amvera.io/?v=3"))
+            KeyboardButton(text="🛍 Открыть каталог", web_app=WebAppInfo(url="https://ai-amway-maiami-maxlml.mia0.amvera.tech"))
         ],
         [
             KeyboardButton(text="📦 О доставке и самовывозе"),
